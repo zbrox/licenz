@@ -6,6 +6,7 @@ edition = "2018"
 description = "A simple CLI tool to easily download a license file"
 license = "MIT"
 repository = "https://github.com/zbrox/licenz"
+categories = ["command-line-utilities"]
 
 [dependencies]
 quicli = "0.4"
