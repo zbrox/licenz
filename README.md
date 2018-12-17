@@ -8,7 +8,7 @@ to your repo and can be useful when automating that task.
 You need to have [cargo](https://github.com/rust-lang/cargo/) installed and then just type `cargo run` in the same
 folder where `Cargo.toml` is located.
 
-Alternatively this might be published on [crates.io](https://crates.io) later on.
+This utility is also published on [crates.io](https://crates.io/crates/licenz).
 
 # How do I use this?
 
