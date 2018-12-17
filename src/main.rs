@@ -1,8 +1,6 @@
 extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
-extern crate exitfailure;
-extern crate serde_derive;
 extern crate chrono;
 use quicli::prelude::*;
 use structopt::StructOpt;
