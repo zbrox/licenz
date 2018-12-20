@@ -48,7 +48,6 @@ fn main() -> CliResult {
 
     if args.list {
         let key_list = get_license_keys()?;
-
         println!("Available licenses: {}", key_list);
         return Ok(());
     }
@@ -58,8 +57,6 @@ fn main() -> CliResult {
         std::process::exit(exitcode::DATAERR);
     }
 
-    
-
     let selected_license: String = match args.license {
         Some(l) => l,
         None => {
@@ -67,6 +64,7 @@ fn main() -> CliResult {
             std::process::exit(exitcode::DATAERR);
         }
     };
+
     let copyright_holder: String = match args.copyright_holder {
         Some(c) => c,
         None => {
@@ -84,7 +82,6 @@ fn main() -> CliResult {
     };
 
     println!("Selected license: {}", license.name);
-            
     println!("Downloading license...");
     let license_body = download_license_text(&license)?;
 
