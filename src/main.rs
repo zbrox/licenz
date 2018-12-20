@@ -9,6 +9,8 @@ use std::io::prelude::*;
 use chrono::prelude::*;
 use std::path::Path;
 
+const BASE_URL: &str = "https://licenz.zbrox.com/";
+
 #[derive(Deserialize)]
 struct License {
     key: String,
@@ -43,20 +45,16 @@ fn main() -> CliResult {
         return Ok(());
     }
 
-    let base_url = "https://licenz.zbrox.com/";
-    let license_text_base_url = format!("{}{}", base_url, "license_text/");
+    let licenses: Vec<License> = get_licenses()?;
 
     let selected_license = args.license;
-    let body = reqwest::get(base_url)?.text()?;
-    let licenses: Vec<License> = serde_json::from_str(&body.to_owned())?;
 
     for license in licenses.iter() {
        if license.key == selected_license {
             println!("Selected license: {}", license.name);
-            let license_url = format!("{}{}.txt", license_text_base_url, license.key);
             
             println!("Downloading license...");
-            let license_body = reqwest::get(&license_url)?.text()?;
+            let license_body = download_license_text(license)?;
 
             write_file(
                 fill_in_details(&license_body, &args.copyright_holder),
@@ -69,6 +67,24 @@ fn main() -> CliResult {
     }
 
     Ok(())
+}
+
+fn download_license_text(license: &License) -> Result<String, Error> {
+    let license_url = get_license_text_url(&license);
+    let body = reqwest::get(&license_url)?.text()?;
+
+    return Ok(body);
+}
+
+fn get_licenses() -> Result<Vec<License>, Error> {
+    let body = reqwest::get(BASE_URL)?.text()?;
+    let licenses: Vec<License> = serde_json::from_str(&body.to_owned())?;
+    Ok(licenses)
+}
+
+fn get_license_text_url(license: &License) -> String {
+    let license_text_base_url = format!("{}{}", BASE_URL, "license_text/");
+    return format!("{}{}.txt", license_text_base_url, license.key);
 }
 
 fn fill_in_details(license_body: &str, copyright_holder: &str) -> String {
