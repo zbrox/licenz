@@ -13,7 +13,7 @@ use std::path::Path;
 
 const BASE_URL: &str = "https://licenz.zbrox.com/";
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 struct License {
     key: String,
     name: String,
@@ -47,8 +47,7 @@ fn main() -> CliResult {
     let args = Cli::from_args();
 
     if args.list {
-        let licenses = get_licenses()?;
-        let key_list = get_license_keys(&licenses)?;
+        let key_list = get_license_keys()?;
 
         println!("Available licenses: {}", key_list);
         return Ok(());
@@ -59,7 +58,7 @@ fn main() -> CliResult {
         std::process::exit(exitcode::DATAERR);
     }
 
-    let licenses: Vec<License> = get_licenses()?;
+    
 
     let selected_license: String = match args.license {
         Some(l) => l,
@@ -76,34 +75,41 @@ fn main() -> CliResult {
         }
     };
 
-    let mut found: bool = false;
+    let license = match get_license_by_key(&selected_license)? {
+        Some(l) => l,
+        None => {
+            println!("Selected license {} not found", selected_license);
+            std::process::exit(exitcode::DATAERR);
+        }
+    };
 
-    for license in licenses.iter() {
-       if license.key == selected_license {
-            found = true;
-            println!("Selected license: {}", license.name);
+    println!("Selected license: {}", license.name);
             
-            println!("Downloading license...");
-            let license_body = download_license_text(license)?;
+    println!("Downloading license...");
+    let license_body = download_license_text(&license)?;
 
-            write_file(
-                fill_in_details(&license_body, &copyright_holder),
-                &args.filename
-            )?;
-            println!("License saved in LICENSE");
-            
-            break;
-       }
-    }
-
-    if !found {
-        println!("Selected license {} not found", selected_license);
-    }
+    write_file(
+        fill_in_details(&license_body, &copyright_holder),
+        &args.filename
+    )?;
+    println!("License saved in LICENSE");
 
     Ok(())
 }
 
-fn get_license_keys(licenses: &Vec<License>) -> Result<String, Error> {
+fn get_license_by_key(key: &str) -> Result<Option<License>, Error> {
+    let licenses: Vec<License> = get_licenses()?;
+    for license in licenses.iter() {
+        if license.key == key {
+            return Ok(Some(license.clone()));
+        }
+    }
+
+    Ok(None)
+}
+
+fn get_license_keys() -> Result<String, Error> {
+    let licenses = get_licenses()?;
     let mut keys: String = String::new();
 
     for (i, license) in licenses.iter().enumerate() {
