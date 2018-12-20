@@ -2,6 +2,8 @@ extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
 extern crate chrono;
+extern crate exitcode;
+
 use quicli::prelude::*;
 use structopt::StructOpt;
 use std::fs::File;
@@ -20,13 +22,17 @@ struct License {
 #[derive(Debug, StructOpt)]
 /// Put a LICENSE file in the current directory with the text of your license of choice
 struct Cli {
+    /// List available license keys you can use for the --license argument
+    #[structopt(long = "list")]
+    list: bool,
+
     /// Which license to add
-    #[structopt(long = "license", short = "l")]
-    license: String,
+    #[structopt(long = "license", short = "l", required_unless = "list")]
+    license: Option<String>,
 
     /// The name of the copyright holder be it organization or a person
-    #[structopt(long = "copyright", short = "c")]
-    copyright_holder: String,
+    #[structopt(long = "copyright", short = "c", required_unless = "list")]
+    copyright_holder: Option<String>,
 
     /// The file in which to save the license text
     #[structopt(long = "file", short = "f", default_value = "LICENSE")]
@@ -40,14 +46,36 @@ struct Cli {
 fn main() -> CliResult {
     let args = Cli::from_args();
 
+    if args.list {
+        let licenses = get_licenses()?;
+        let key_list = get_license_keys(&licenses)?;
+
+        println!("Available licenses: {}", key_list);
+        return Ok(());
+    }
+
     if !args.overwrite && Path::new(&args.filename).exists() {
         println!("File {} already exists. If you wanna overwrite it pass the -o option.", &args.filename);
-        return Ok(());
+        std::process::exit(exitcode::DATAERR);
     }
 
     let licenses: Vec<License> = get_licenses()?;
 
-    let selected_license = args.license;
+    let selected_license: String = match args.license {
+        Some(l) => l,
+        None => {
+            println!("--license not specified");
+            std::process::exit(exitcode::DATAERR);
+        }
+    };
+    let copyright_holder: String = match args.copyright_holder {
+        Some(c) => c,
+        None => {
+            println!("--copyright not specified");
+            std::process::exit(exitcode::DATAERR);
+        }
+    };
+
     let mut found: bool = false;
 
     for license in licenses.iter() {
@@ -59,7 +87,7 @@ fn main() -> CliResult {
             let license_body = download_license_text(license)?;
 
             write_file(
-                fill_in_details(&license_body, &args.copyright_holder),
+                fill_in_details(&license_body, &copyright_holder),
                 &args.filename
             )?;
             println!("License saved in LICENSE");
@@ -73,6 +101,19 @@ fn main() -> CliResult {
     }
 
     Ok(())
+}
+
+fn get_license_keys(licenses: &Vec<License>) -> Result<String, Error> {
+    let mut keys: String = String::new();
+
+    for (i, license) in licenses.iter().enumerate() {
+        if i != 0 {
+            keys.push_str(", ");
+        }
+        keys.push_str(&license.key);
+    }
+
+    Ok(keys)
 }
 
 fn download_license_text(license: &License) -> Result<String, Error> {
