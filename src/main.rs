@@ -7,6 +7,7 @@ use structopt::StructOpt;
 use std::fs::File;
 use std::io::prelude::*;
 use chrono::prelude::*;
+use std::path::Path;
 
 #[derive(Deserialize)]
 struct License {
@@ -28,10 +29,19 @@ struct Cli {
     /// The file in which to save the license text
     #[structopt(long = "file", short = "f", default_value = "LICENSE")]
     filename: String,
+
+    /// Overwrite the LICENSE file if it already exists
+    #[structopt(long = "overwrite", short = "o")]
+    overwrite: bool,
 }
 
 fn main() -> CliResult {
     let args = Cli::from_args();
+
+    if !args.overwrite && Path::new(&args.filename).exists() {
+        println!("File {} already exists. If you wanna overwrite it pass the -o option.", &args.filename);
+        return Ok(());
+    }
 
     let base_url = "https://licenz.zbrox.com/";
     let license_text_base_url = format!("{}{}", base_url, "license_text/");
