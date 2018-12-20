@@ -48,9 +48,11 @@ fn main() -> CliResult {
     let licenses: Vec<License> = get_licenses()?;
 
     let selected_license = args.license;
+    let mut found: bool = false;
 
     for license in licenses.iter() {
        if license.key == selected_license {
+            found = true;
             println!("Selected license: {}", license.name);
             
             println!("Downloading license...");
@@ -64,6 +66,10 @@ fn main() -> CliResult {
             
             break;
        }
+    }
+
+    if !found {
+        println!("Selected license {} not found", selected_license);
     }
 
     Ok(())
