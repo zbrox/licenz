@@ -123,7 +123,7 @@ fn download_license_text(license: &License) -> Result<String, Error> {
     let license_url = get_license_text_url(&license);
     let body = reqwest::get(&license_url)?.text()?;
 
-    return Ok(body);
+    Ok(body)
 }
 
 fn get_licenses() -> Result<Vec<License>, Error> {
@@ -142,11 +142,11 @@ fn fill_in_details(license_body: &str, copyright_holder: &str) -> String {
     let year_string = format!("{}", date.year());
     let text_with_year = license_body.replace("<YEAR>", &year_string);
 
-    return text_with_year.replace("<COPYRIGHT_HOLDER>", copyright_holder);
+    text_with_year.replace("<COPYRIGHT_HOLDER>", copyright_holder)
 }
 
 fn write_file(text: String, filename: &str) -> Result<(), Error> {
     let mut buffer = File::create(filename)?;
-    buffer.write(&text.into_bytes())?;
+    buffer.write_all(&text.into_bytes())?;
     Ok(())
 }
