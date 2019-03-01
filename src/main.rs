@@ -96,27 +96,21 @@ fn main() -> CliResult {
 
 fn get_license_by_key(key: &str) -> Result<Option<License>, Error> {
     let licenses: Vec<License> = get_licenses()?;
-    for license in licenses.iter() {
-        if license.key == key {
-            return Ok(Some(license.clone()));
-        }
-    }
 
-    Ok(None)
+    let license = licenses.into_iter().find(|l| l.key == key);
+
+    Ok(license)
 }
 
 fn get_license_keys() -> Result<String, Error> {
     let licenses = get_licenses()?;
-    let mut keys: String = String::new();
+    
+    let keys: Vec<String> = licenses
+        .into_iter()
+        .map(|l| l.key)
+        .collect();
 
-    for (i, license) in licenses.iter().enumerate() {
-        if i != 0 {
-            keys.push_str(", ");
-        }
-        keys.push_str(&license.key);
-    }
-
-    Ok(keys)
+    Ok(keys.join(", "))
 }
 
 fn download_license_text(license: &License) -> Result<String, Error> {
