@@ -21,7 +21,18 @@ struct License {
 
 #[derive(Debug, StructOpt)]
 /// Put a LICENSE file in the current directory with the text of your license of choice
-struct Cli {
+enum Cli {
+    /// Subcommand for fetching a license
+    #[structopt(name = "download")]
+    Download(Download),
+
+    /// Subcommand for verifying licenses
+    #[structopt(name = "verify")]
+    Verify(Verify),
+}
+
+#[derive(Debug, StructOpt)]
+struct Download {
     /// List available license keys you can use for the --license argument
     #[structopt(long = "list")]
     list: bool,
@@ -43,9 +54,11 @@ struct Cli {
     overwrite: bool,
 }
 
-fn main() -> CliResult {
-    let args = Cli::from_args();
+#[derive(Debug, StructOpt)]
+struct Verify {
+}
 
+fn download_subcommand(args: Download) -> CliResult {
     if args.list {
         let key_list = get_license_keys()?;
         println!("Available licenses: {}", key_list);
@@ -92,6 +105,15 @@ fn main() -> CliResult {
     println!("License saved in LICENSE");
 
     Ok(())
+}
+
+fn main() -> CliResult {
+    let args = Cli::from_args();
+
+    match args {
+        Cli::Download(v) => download_subcommand(v),
+        Cli::Verify(_) => Ok(()),
+    }
 }
 
 fn get_license_by_key(key: &str) -> Result<Option<License>, Error> {
