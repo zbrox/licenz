@@ -10,6 +10,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use chrono::prelude::*;
 use std::path::Path;
+use human_panic::{setup_panic};
 
 const BASE_URL: &str = "https://licenz.zbrox.com/";
 
@@ -108,6 +109,7 @@ fn download_subcommand(args: Download) -> CliResult {
 }
 
 fn main() -> CliResult {
+    setup_panic!();
     let args = Cli::from_args();
 
     match args {
