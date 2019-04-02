@@ -11,6 +11,8 @@ use std::io::prelude::*;
 use chrono::prelude::*;
 use std::path::Path;
 use human_panic::{setup_panic};
+use colored_diff;
+use colored::*;
 
 const BASE_URL: &str = "https://licenz.zbrox.com/";
 
@@ -57,6 +59,17 @@ struct Download {
 
 #[derive(Debug, StructOpt)]
 struct Verify {
+    /// Which license to compare against
+    #[structopt(long = "license", short = "l", required_unless = "list")]
+    license: Option<String>,
+
+    /// The file in which you have a license saved in for comparison
+    #[structopt(long = "file", short = "f", default_value = "LICENSE")]
+    filename: String,
+
+    /// The name of the copyright holder be it organization or a person
+    #[structopt(long = "copyright", short = "c", required_unless = "list")]
+    copyright_holder: Option<String>,
 }
 
 fn download_subcommand(args: Download) -> CliResult {
@@ -114,7 +127,7 @@ fn main() -> CliResult {
 
     match args {
         Cli::Download(v) => download_subcommand(v),
-        Cli::Verify(_) => Ok(()),
+        Cli::Verify(v) => compare(v),
     }
 }
 
@@ -166,5 +179,49 @@ fn fill_in_details(license_body: &str, copyright_holder: &str) -> String {
 fn write_file(text: String, filename: &str) -> Result<(), Error> {
     let mut buffer = File::create(filename)?;
     buffer.write_all(&text.into_bytes())?;
+    Ok(())
+}
+
+fn compare(args: Verify) -> CliResult {
+    let selected_license: String = match args.license {
+        Some(l) => l,
+        None => {
+            println!("--license not specified");
+            std::process::exit(exitcode::DATAERR);
+        }
+    };
+
+    let copyright_holder: String = match args.copyright_holder {
+        Some(c) => c,
+        None => {
+            println!("--copyright not specified");
+            std::process::exit(exitcode::DATAERR);
+        }
+    };
+
+    let license = match get_license_by_key(&selected_license)? {
+        Some(l) => l,
+        None => {
+            println!("Selected license {} not found", selected_license);
+            std::process::exit(exitcode::DATAERR);
+        }
+    };
+
+    let license_body = fill_in_details(&download_license_text(&license)?, &copyright_holder);
+    let license_body_on_disk = read_file(&args.filename)?;
+
+    if license_body == license_body_on_disk {
+        println!("{} seems to match the one saved on disk in {}", &license.name.red(), &args.filename.green());
+        return Ok(());
+    }
+
+    let diff = colored_diff::PrettyDifference { 
+        expected: &license_body, 
+        actual: &license_body_on_disk 
+    };
+
+    println!("Here are the differences found between the file {} and the {} contents", &args.filename.green(), &license.name.red());
+    println!("{}", diff);
+
     Ok(())
 }
