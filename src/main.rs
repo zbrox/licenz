@@ -10,6 +10,9 @@ use std::fs::File;
 use std::io::prelude::*;
 use chrono::prelude::*;
 use std::path::Path;
+use human_panic::{setup_panic};
+use colored_diff;
+use colored::*;
 
 const BASE_URL: &str = "https://licenz.zbrox.com/";
 
@@ -21,7 +24,18 @@ struct License {
 
 #[derive(Debug, StructOpt)]
 /// Put a LICENSE file in the current directory with the text of your license of choice
-struct Cli {
+enum Cli {
+    /// Subcommand for fetching a license
+    #[structopt(name = "download")]
+    Download(Download),
+
+    /// Subcommand for verifying licenses
+    #[structopt(name = "verify")]
+    Verify(Verify),
+}
+
+#[derive(Debug, StructOpt)]
+struct Download {
     /// List available license keys you can use for the --license argument
     #[structopt(long = "list")]
     list: bool,
@@ -43,9 +57,22 @@ struct Cli {
     overwrite: bool,
 }
 
-fn main() -> CliResult {
-    let args = Cli::from_args();
+#[derive(Debug, StructOpt)]
+struct Verify {
+    /// Which license to compare against
+    #[structopt(long = "license", short = "l", required_unless = "list")]
+    license: Option<String>,
 
+    /// The file in which you have a license saved in for comparison
+    #[structopt(long = "file", short = "f", default_value = "LICENSE")]
+    filename: String,
+
+    /// The name of the copyright holder be it organization or a person
+    #[structopt(long = "copyright", short = "c", required_unless = "list")]
+    copyright_holder: Option<String>,
+}
+
+fn download_subcommand(args: Download) -> CliResult {
     if args.list {
         let key_list = get_license_keys()?;
         println!("Available licenses: {}", key_list);
@@ -94,36 +121,40 @@ fn main() -> CliResult {
     Ok(())
 }
 
+fn main() -> CliResult {
+    setup_panic!();
+    let args = Cli::from_args();
+
+    match args {
+        Cli::Download(v) => download_subcommand(v),
+        Cli::Verify(v) => compare(v),
+    }
+}
+
 fn get_license_by_key(key: &str) -> Result<Option<License>, Error> {
     let licenses: Vec<License> = get_licenses()?;
-    for license in licenses.iter() {
-        if license.key == key {
-            return Ok(Some(license.clone()));
-        }
-    }
 
-    Ok(None)
+    let license = licenses.into_iter().find(|l| l.key == key);
+
+    Ok(license)
 }
 
 fn get_license_keys() -> Result<String, Error> {
     let licenses = get_licenses()?;
-    let mut keys: String = String::new();
+    
+    let keys: Vec<String> = licenses
+        .into_iter()
+        .map(|l| l.key)
+        .collect();
 
-    for (i, license) in licenses.iter().enumerate() {
-        if i != 0 {
-            keys.push_str(", ");
-        }
-        keys.push_str(&license.key);
-    }
-
-    Ok(keys)
+    Ok(keys.join(", "))
 }
 
 fn download_license_text(license: &License) -> Result<String, Error> {
     let license_url = get_license_text_url(&license);
     let body = reqwest::get(&license_url)?.text()?;
 
-    return Ok(body);
+    Ok(body)
 }
 
 fn get_licenses() -> Result<Vec<License>, Error> {
@@ -142,11 +173,55 @@ fn fill_in_details(license_body: &str, copyright_holder: &str) -> String {
     let year_string = format!("{}", date.year());
     let text_with_year = license_body.replace("<YEAR>", &year_string);
 
-    return text_with_year.replace("<COPYRIGHT_HOLDER>", copyright_holder);
+    text_with_year.replace("<COPYRIGHT_HOLDER>", copyright_holder)
 }
 
 fn write_file(text: String, filename: &str) -> Result<(), Error> {
     let mut buffer = File::create(filename)?;
-    buffer.write(&text.into_bytes())?;
+    buffer.write_all(&text.into_bytes())?;
+    Ok(())
+}
+
+fn compare(args: Verify) -> CliResult {
+    let selected_license: String = match args.license {
+        Some(l) => l,
+        None => {
+            println!("--license not specified");
+            std::process::exit(exitcode::DATAERR);
+        }
+    };
+
+    let copyright_holder: String = match args.copyright_holder {
+        Some(c) => c,
+        None => {
+            println!("--copyright not specified");
+            std::process::exit(exitcode::DATAERR);
+        }
+    };
+
+    let license = match get_license_by_key(&selected_license)? {
+        Some(l) => l,
+        None => {
+            println!("Selected license {} not found", selected_license);
+            std::process::exit(exitcode::DATAERR);
+        }
+    };
+
+    let license_body = fill_in_details(&download_license_text(&license)?, &copyright_holder);
+    let license_body_on_disk = read_file(&args.filename)?;
+
+    if license_body == license_body_on_disk {
+        println!("{} seems to match the one saved on disk in {}", &license.name.red(), &args.filename.green());
+        return Ok(());
+    }
+
+    let diff = colored_diff::PrettyDifference { 
+        expected: &license_body, 
+        actual: &license_body_on_disk 
+    };
+
+    println!("Here are the differences found between the file {} and the {} contents", &args.filename.green(), &license.name.red());
+    println!("{}", diff);
+
     Ok(())
 }
