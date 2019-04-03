@@ -1,12 +1,13 @@
 [package]
 name = "licenz"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Rostislav Raykov <z@zbrox.org>"]
 edition = "2018"
-description = "A simple CLI tool to easily download a license file"
+description = "A simple CLI tool to easily download a license file or compare an existing file to a license"
 license = "MIT"
 repository = "https://github.com/zbrox/licenz"
 categories = ["command-line-utilities"]
+readme = "README.md"
 
 [dependencies]
 quicli = "0.4"
